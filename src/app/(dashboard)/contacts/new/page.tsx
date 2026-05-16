@@ -62,31 +62,25 @@ export default function AddContactPage() {
         return;
       }
 
-      // Quick insert
-      const { data, error } = await supabase.from('contacts').insert([{
+      // Quick insert without selecting back (avoids RLS read-on-write issues)
+      const { error } = await supabase.from('contacts').insert([{
         full_name: form.full_name,
         phone: form.phone,
         interested_course: form.interested_course,
         lead_source: form.lead_source,
         status: 'waiting',
         assigned_staff_id: user?.id
-      }]).select('id');
+      }]);
 
       if (error) throw error;
       
-      const newId = data?.[0]?.id;
-      if (newId) {
-        // Background activity log
-        supabase.from('contact_activities').insert([{
-          contact_id: newId,
-          user_id: user?.id,
-          type: 'other',
-          description: `Yeni kişi eklendi: ${form.full_name}`
-        }]).then();
-      }
-
       toast.success('Başarıyla eklendi');
-      router.push('/contacts');
+      
+      // Small delay before redirect to ensure database sync
+      setTimeout(() => {
+        router.push('/contacts');
+      }, 500);
+      
     } catch (err) {
       console.error(err);
       toast.error('Hata oluştu, lütfen tekrar deneyin');
