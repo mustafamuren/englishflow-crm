@@ -126,6 +126,8 @@ export default function ContactDetailPage() {
   const handleMakeSale = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (!contact) return;
+
       // First update the contact info if it was changed in the modal
       await supabase.from('contacts').update({
         full_name: contact.full_name,
