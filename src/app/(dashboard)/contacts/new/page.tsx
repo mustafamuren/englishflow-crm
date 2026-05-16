@@ -35,6 +35,8 @@ export default function AddContactPage() {
 
   useEffect(() => {
     fetchOptions();
+    const timeout = setTimeout(() => setIsLoading(false), 5000);
+    return () => clearTimeout(timeout);
   }, [fetchOptions]);
 
   const handlePhoneChange = (value: string) => {
@@ -52,6 +54,13 @@ export default function AddContactPage() {
       return;
     }
 
+    const submitTimeout = setTimeout(() => {
+      if (isLoading) {
+        setIsLoading(false);
+        toast.error('İşlem çok uzun sürdü, lütfen internetinizi kontrol edip tekrar deneyin.');
+      }
+    }, 15000);
+
     try {
       const { data: existing } = await supabase
         .from('contacts')
@@ -62,23 +71,27 @@ export default function AddContactPage() {
       if (existing) {
         toast.error(`Bu telefon numarası zaten kayıtlı: ${existing.full_name}`);
         setIsLoading(false);
+        clearTimeout(submitTimeout);
         return;
       }
 
-      const { data: newContact, error } = await supabase.from('contacts').insert({
+      const { data, error } = await supabase.from('contacts').insert({
         ...form,
         status: 'waiting',
         assigned_staff_id: user?.id,
-      }).select().single();
+      }).select();
 
       if (error) throw error;
+      const newContact = data?.[0];
 
-      await supabase.from('contact_activities').insert({
-        contact_id: newContact.id,
-        user_id: user?.id,
-        type: 'other',
-        description: `Yeni kişi "${form.full_name}" eklendi`,
-      });
+      if (newContact) {
+        await supabase.from('contact_activities').insert({
+          contact_id: newContact.id,
+          user_id: user?.id,
+          type: 'other',
+          description: `Yeni kişi "${form.full_name}" eklendi`,
+        });
+      }
 
       toast.success('Kişi başarıyla eklendi!');
       router.push('/contacts');
@@ -87,6 +100,7 @@ export default function AddContactPage() {
       toast.error('Kişi eklenirken bir hata oluştu');
     } finally {
       setIsLoading(false);
+      clearTimeout(submitTimeout);
     }
   };
 
