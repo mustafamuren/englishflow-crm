@@ -69,6 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     getUser();
 
+    // Safety timeout: force loading to false after 5 seconds to prevent infinite hang
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 5000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         try {
@@ -87,7 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [supabase, fetchProfile]);
 
   const signOut = async () => {
