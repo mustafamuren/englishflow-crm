@@ -48,59 +48,49 @@ export default function AddContactPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    if (!isValidTurkishPhone(form.phone)) {
-      toast.error('Lütfen geçerli bir telefon numarası giriniz (05XX XXX XX XX)');
-      setIsLoading(false);
-      return;
-    }
-
-    const submitTimeout = setTimeout(() => {
-      if (isLoading) {
-        setIsLoading(false);
-        toast.error('İşlem çok uzun sürdü, lütfen internetinizi kontrol edip tekrar deneyin.');
-      }
-    }, 15000);
-
     try {
+      // Check for existing phone
       const { data: existing } = await supabase
         .from('contacts')
-        .select('id, full_name')
+        .select('id')
         .eq('phone', form.phone)
         .maybeSingle();
 
       if (existing) {
-        toast.error(`Bu telefon numarası zaten kayıtlı: ${existing.full_name}`);
+        toast.error('Bu numara zaten kayıtlı.');
         setIsLoading(false);
-        clearTimeout(submitTimeout);
         return;
       }
 
-      const { data, error } = await supabase.from('contacts').insert({
-        ...form,
+      // Quick insert
+      const { data, error } = await supabase.from('contacts').insert([{
+        full_name: form.full_name,
+        phone: form.phone,
+        interested_course: form.interested_course,
+        lead_source: form.lead_source,
         status: 'waiting',
-        assigned_staff_id: user?.id,
-      }).select();
+        assigned_staff_id: user?.id
+      }]).select('id');
 
       if (error) throw error;
-      const newContact = data?.[0];
-
-      if (newContact) {
-        await supabase.from('contact_activities').insert({
-          contact_id: newContact.id,
+      
+      const newId = data?.[0]?.id;
+      if (newId) {
+        // Background activity log
+        supabase.from('contact_activities').insert([{
+          contact_id: newId,
           user_id: user?.id,
           type: 'other',
-          description: `Yeni kişi "${form.full_name}" eklendi`,
-        });
+          description: `Yeni kişi eklendi: ${form.full_name}`
+        }]).then();
       }
 
-      toast.success('Kişi başarıyla eklendi!');
+      toast.success('Başarıyla eklendi');
       router.push('/contacts');
-    } catch (error) {
-      console.error(error);
-      toast.error('Kişi eklenirken bir hata oluştu');
-    } finally {
+    } catch (err) {
+      console.error(err);
+      toast.error('Hata oluştu, lütfen tekrar deneyin');
       setIsLoading(false);
-      clearTimeout(submitTimeout);
     }
   };
 
