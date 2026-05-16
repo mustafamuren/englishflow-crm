@@ -99,6 +99,8 @@ export default function ContactsPage() {
 
   useEffect(() => {
     fetchContacts();
+    const timeout = setTimeout(() => setIsLoading(false), 5000);
+    return () => clearTimeout(timeout);
   }, [fetchContacts]);
 
   useEffect(() => {
