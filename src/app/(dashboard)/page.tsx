@@ -42,75 +42,79 @@ export default function DashboardPage() {
   const supabase = createClient();
 
   const fetchChartData = useCallback(async () => {
-    // Leads by status
-    const { data: contacts } = await supabase.from('contacts').select('status');
-    if (contacts) {
-      const statusMap = new Map<string, number>();
-      contacts.forEach(c => {
-        const status = c.status || 'waiting';
-        statusMap.set(status, (statusMap.get(status) || 0) + 1);
-      });
-      const statusMapping: Record<string, string> = {
-        'waiting': 'Bekliyor',
-        'called': 'Arandı',
-        'no_answer': 'Cevap Vermedi',
-        'interested': 'İlgileniyor',
-        'thinking': 'Düşünüyor',
-        'appointment_scheduled': 'Randevu Planlandı',
-        'sale_completed': 'Satış Yapıldı',
-        'not_interested': 'İlgilenmiyor',
-      };
-      setLeadsByStatus(
-        Array.from(statusMap.entries()).map(([name, value]) => ({
-          name: statusMapping[name] || name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          value,
-        }))
-      );
+    try {
+      // Leads by status
+      const { data: contacts } = await supabase.from('contacts').select('status');
+      if (contacts) {
+        const statusMap = new Map<string, number>();
+        contacts.forEach(c => {
+          const status = c.status || 'waiting';
+          statusMap.set(status, (statusMap.get(status) || 0) + 1);
+        });
+        const statusMapping: Record<string, string> = {
+          'waiting': 'Bekliyor',
+          'called': 'Arandı',
+          'no_answer': 'Cevap Vermedi',
+          'interested': 'İlgileniyor',
+          'thinking': 'Düşünüyor',
+          'appointment_scheduled': 'Randevu Planlandı',
+          'sale_completed': 'Satış Yapıldı',
+          'not_interested': 'İlgilenmiyor',
+        };
+        setLeadsByStatus(
+          Array.from(statusMap.entries()).map(([name, value]) => ({
+            name: statusMapping[name] || name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            value,
+          }))
+        );
+      }
+
+      // Lead source data
+      const { data: sourceContacts } = await supabase.from('contacts').select('lead_source');
+      if (sourceContacts) {
+        const sourceMap = new Map<string, number>();
+        sourceContacts.forEach(c => {
+          const src = c.lead_source || 'Unknown';
+          sourceMap.set(src, (sourceMap.get(src) || 0) + 1);
+        });
+        setLeadSourceData(
+          Array.from(sourceMap.entries()).map(([name, value]) => ({ name, value }))
+        );
+      }
+
+      // Monthly sales (last 6 months)
+      const months: Array<{ month: string; revenue: number; sales: number }> = [];
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+      sixMonthsAgo.setDate(1);
+      sixMonthsAgo.setHours(0, 0, 0, 0);
+
+      const { data: allSales } = await supabase
+        .from('sales')
+        .select('amount, created_at')
+        .gte('created_at', sixMonthsAgo.toISOString());
+
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const m = d.getMonth();
+        const y = d.getFullYear();
+        
+        const monthSales = (allSales || []).filter(s => {
+          const sd = new Date(s.created_at);
+          return sd.getMonth() === m && sd.getFullYear() === y;
+        });
+
+        months.push({
+          month: d.toLocaleString('tr-TR', { month: 'short' }),
+          revenue: monthSales.reduce((s, v) => s + (v.amount || 0), 0),
+          sales: monthSales.length,
+        });
+      }
+      setMonthlySalesData(months);
+    } catch (error) {
+      console.error('Error fetching chart data:', error);
     }
-
-    // Lead source data
-    const { data: sourceContacts } = await supabase.from('contacts').select('lead_source');
-    if (sourceContacts) {
-      const sourceMap = new Map<string, number>();
-      sourceContacts.forEach(c => {
-        const src = c.lead_source || 'Unknown';
-        sourceMap.set(src, (sourceMap.get(src) || 0) + 1);
-      });
-      setLeadSourceData(
-        Array.from(sourceMap.entries()).map(([name, value]) => ({ name, value }))
-      );
-    }
-
-    // Monthly sales (last 6 months)
-    const months: Array<{ month: string; revenue: number; sales: number }> = [];
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    sixMonthsAgo.setDate(1);
-    sixMonthsAgo.setHours(0, 0, 0, 0);
-
-    const { data: allSales } = await supabase
-      .from('sales')
-      .select('amount, created_at')
-      .gte('created_at', sixMonthsAgo.toISOString());
-
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const m = d.getMonth();
-      const y = d.getFullYear();
-      
-      const monthSales = (allSales || []).filter(s => {
-        const sd = new Date(s.created_at);
-        return sd.getMonth() === m && sd.getFullYear() === y;
-      });
-
-      months.push({
-        month: d.toLocaleString('tr-TR', { month: 'short' }),
-        revenue: monthSales.reduce((s, v) => s + (v.amount || 0), 0),
-        sales: monthSales.length,
-      });
-    }
-    setMonthlySalesData(months);
   }, [supabase]);
 
   useEffect(() => {

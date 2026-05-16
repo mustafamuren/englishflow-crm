@@ -96,6 +96,9 @@ export function useDashboardStats() {
 
   useEffect(() => {
     fetchStats();
+    // Safety timeout: stop loading spinner after 10 seconds no matter what
+    const timeout = setTimeout(() => setIsLoading(false), 10000);
+    return () => clearTimeout(timeout);
   }, [fetchStats]);
 
   return { stats, recentActivities, upcomingAppointments, isLoading, refresh: fetchStats };

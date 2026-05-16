@@ -118,7 +118,7 @@ export default function Topbar({ onMenuClick, title }: TopbarProps) {
             {profile?.full_name || 'Kullanıcı'}
           </p>
           <p style={{ fontSize: 11, color: '#94a3b8', textTransform: 'capitalize' }}>
-            {profile?.role === 'sales_rep' ? 'Satış Temsilcisi' : profile?.role === 'admin' ? 'Yönetici' : 'Yükleniyor...'}
+            {profile?.role === 'sales_rep' ? 'Satış Temsilcisi' : profile?.role === 'admin' ? 'Yönetici' : profile?.role || 'Kullanıcı'}
           </p>
         </div>
       </div>
